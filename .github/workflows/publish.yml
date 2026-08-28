@@ -1,0 +1,39 @@
+name: Publish to PyPI
+
+# Trigger the workflow only when a new GitHub Release is published
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    name: Build and Publish Python Package
+    runs-on: ubuntu-latest
+    
+    # Define the environment name (required for PyPI Trusted Publishing)
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mdgraph
+
+    # Required permissions for PyPI OIDC authentication
+    permissions:
+      id-token: write 
+      contents: read
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.7"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build
+
+      - name: Build Source Distribution and Wheel
+        run: python -m build
+
+      - name: Publish Package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
