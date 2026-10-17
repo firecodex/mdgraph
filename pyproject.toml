@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mdgraph"
+name = "md-graph"
 version = "0.1.0"
 description = "A vectorless Open Knowledge Format (OKF) context engine for agentic AI"
 readme = "README.md"
@@ -13,6 +13,7 @@ authors = [
     { name = "MdGraph Contributors", email = "info@mdgraph.dev" }
 ]
 keywords = [
+    "md-graph",
     "mdgraph",
     "open knowledge format",
     "okf",
@@ -64,7 +65,7 @@ postgres = [
     "psycopg[binary]>=3.1.0"
 ]
 all = [
-    "mdgraph[dev,postgres]"
+    "md-graph[dev,postgres]"
 ]
 
 [project.urls]
@@ -76,6 +77,7 @@ Changelog = "https://github.com/firecodex/mdgraph/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mdgraph = "mdgraph.cli:main"
+md-graph = "mdgraph.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mdgraph"]
