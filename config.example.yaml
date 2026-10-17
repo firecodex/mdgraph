@@ -1,0 +1,32 @@
+# MdGraph Configuration File
+# -------------------------
+
+# Path to the Git repository containing OKF Markdown files
+repo_path: "./knowledge"
+
+# Path to SQLite relational query cache database
+cache_path: "./.mdgraph/cache.db"
+
+# Database type: "sqlite" or "postgres"
+db_type: "sqlite"
+
+# PostgreSQL connection string (if db_type is postgres)
+# postgres_uri: "postgresql://postgres:password@localhost:5432/mdgraph"
+
+# MCP Server Settings
+mcp_host: "0.0.0.0"
+mcp_port: 8000
+
+# Compiler LLM Settings (LiteLLM model string)
+# Examples:
+#   - openai/gpt-4o-mini
+#   - anthropic/claude-3-5-sonnet-20241022
+#   - gemini/gemini-1.5-flash
+#   - ollama/llama3.2
+llm_model: "openai/gpt-4o-mini"
+llm_temperature: 0.1
+
+# Git commit metadata for automated compiler edits
+git_author_name: "MdGraph Compiler"
+git_author_email: "compiler@mdgraph.dev"
+auto_commit: true
