@@ -21,7 +21,7 @@ class PostgresQueryCache(BaseQueryCache):
             self._dict_row = dict_row
         except ImportError:
             raise ImportError(
-                "PostgreSQL support requires 'psycopg'. Install with: pip install md-graph[postgres]"
+                "PostgreSQL support requires 'psycopg'. Install with: pip install mdgraph-ai[postgres]"
             )
 
         self._conn = None

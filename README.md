@@ -56,7 +56,7 @@ MdGraph enforces a strict physical separation between the **Compiler Layer** (he
 ## Installation
 
 ```bash
-pip install md-graph
+pip install mdgraph-ai
 ```
 
 Or install in development/editable mode:
@@ -70,7 +70,7 @@ pip install -e ".[dev]"
 For PostgreSQL enterprise backend:
 
 ```bash
-pip install "md-graph[postgres]"
+pip install "mdgraph-ai[postgres]"
 ```
 
 ---
