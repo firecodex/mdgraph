@@ -1,6 +1,7 @@
 """Integration tests for the mdgraph CLI."""
 
 from click.testing import CliRunner
+
 from mdgraph.cli import main
 
 
@@ -95,3 +96,30 @@ def test_cli_ingest_compile_index_query_traverse(temp_dir):
     ], env={"MDGRAPH_REPO_PATH": str(repo_dir), "MDGRAPH_CACHE_PATH": str(cache_db)})
     assert show_res.exit_code == 0
     assert "Remote Work Policy" in show_res.output
+
+
+def test_cli_ingest_url(temp_dir):
+    from unittest.mock import MagicMock, patch
+
+    runner = CliRunner()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = "<html><head><title>Remote Architecture</title></head><body><h1>API Design</h1></body></html>"
+
+    dest_dir = temp_dir / "url_output"
+    with patch("httpx.Client.get", return_value=mock_resp):
+        res = runner.invoke(main, ["ingest", "https://example.com/arch", "--dest", str(dest_dir)])
+        assert res.exit_code == 0
+        assert "Ingested Documents" in res.output
+        assert "Remote Architecture" in res.output
+        written_files = list(dest_dir.glob("*.md"))
+        assert len(written_files) == 1
+        assert "remote_architecture.md" in written_files[0].name
+
+
+def test_cli_ingest_nonexistent_path():
+    runner = CliRunner()
+    res = runner.invoke(main, ["ingest", "/non/existent/path/that/cannot/exist/xyz_12345"])
+    assert res.exit_code != 0
+    assert "does not exist" in res.output
+

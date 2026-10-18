@@ -1,6 +1,6 @@
 """Unit tests for SQLite FTS5 and Recursive CTE Vectorless Query Cache."""
 
-from mdgraph.models import Edge, OKFConcept
+from mdgraph.models import OKFConcept
 
 
 def test_sqlite_cache_upsert_and_get(sqlite_cache, sample_okf_concept):

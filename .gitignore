@@ -217,8 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
 devops.md
-
-
 .pypirc
+.mdgraph/
+normalized/
+knowledge/

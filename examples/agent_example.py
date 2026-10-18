@@ -3,10 +3,11 @@
 
 import asyncio
 from pathlib import Path
+
 from rich.console import Console
 from rich.panel import Panel
 
-from mdgraph import GitRepo, SQLiteQueryCache, load_config
+from mdgraph import GitRepo, SQLiteQueryCache
 from mdgraph.server.mcp_server import create_mcp_server
 
 console = Console()
@@ -28,18 +29,18 @@ async def run_agent_workflow():
 
     # Agent Step 1: User asks: "How do I buy a remote work monitor and get it approved?"
     user_query = "buy remote monitor"
-    console.print(f"[bold cyan]User Prompt:[/bold cyan] 'How do I buy a remote work monitor and get it approved?'\n")
+    console.print("[bold cyan]User Prompt:[/bold cyan] 'How do I buy a remote work monitor and get it approved?'\n")
 
     console.print(f"[yellow]Agent Action 1: Call search_knowledge(query='{user_query}')[/yellow]")
     search_results = await mcp_server.call_tool("search_knowledge", {"query": user_query})
 
     # FastMCP call_tool returns a list of Content objects
-    result_text = search_results[0].text if isinstance(search_results, list) else str(search_results)
-    console.print(f"   Agent received matching concept: [green]remote_work_policy[/green]")
+    search_results[0].text if isinstance(search_results, list) else str(search_results)
+    console.print("   Agent received matching concept: [green]remote_work_policy[/green]")
 
     # Agent Step 2: Traverse graph to discover dependencies deterministically
-    console.print(f"\n[yellow]Agent Action 2: Call traverse_graph(node_id='remote_work_policy', max_depth=2)[/yellow]")
-    traverse_results = await mcp_server.call_tool(
+    console.print("\n[yellow]Agent Action 2: Call traverse_graph(node_id='remote_work_policy', max_depth=2)[/yellow]")
+    await mcp_server.call_tool(
         "traverse_graph",
         {"node_id": "remote_work_policy", "max_depth": 2}
     )
@@ -49,12 +50,12 @@ async def run_agent_workflow():
     console.print("   → [cyan]security_guidelines[/cyan] (device compliance)")
 
     # Agent Step 3: Fetch exact source text of related concepts
-    console.print(f"\n[yellow]Agent Action 3: Call read_concept_body(node_id='vendor_portal')[/yellow]")
+    console.print("\n[yellow]Agent Action 3: Call read_concept_body(node_id='vendor_portal')[/yellow]")
     vendor_body = await mcp_server.call_tool("read_concept_body", {"node_id": "vendor_portal"})
-    vendor_text = vendor_body[0].text if isinstance(vendor_body, list) else str(vendor_body)
+    vendor_body[0].text if isinstance(vendor_body, list) else str(vendor_body)
 
     console.print(Panel(
-        f"[bold]Agent Synthesized Answer:[/bold]\n\n"
+        "[bold]Agent Synthesized Answer:[/bold]\n\n"
         "To purchase a monitor for remote work:\n"
         "1. Equipment is covered under the **Remote Work Hardware Allowance**.\n"
         "2. Orders must be submitted via the **Vendor Portal**.\n"

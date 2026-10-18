@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Set
 
 from mdgraph.indexer.base import BaseQueryCache
 from mdgraph.models import OKFConcept
@@ -32,13 +30,13 @@ class IndexSyncWorker:
         self.cache = cache
         self.file_manager = OKFFileManager(repo)
 
-    def sync(self, force: bool = False) -> SyncSummary:
-        """Incrementally sync repository Markdown files into query cache."""
+    def sync(self, tenant_id: str | None = None, force: bool = False) -> SyncSummary:
+        """Incrementally sync repository Markdown files into query cache, optionally scoped to tenant."""
         start_time = time.perf_counter()
         summary = SyncSummary()
 
-        active_concept_ids: Set[str] = set()
-        md_files = self.repo.list_markdown_files()
+        active_concepts: set[tuple[str, str]] = set()
+        md_files = self.repo.list_markdown_files(tenant_id=tenant_id)
 
         for file_path in md_files:
             try:
@@ -53,9 +51,10 @@ class IndexSyncWorker:
                     file_path=rel_path,
                     commit_hash=commit_hash,
                 )
-                active_concept_ids.add(concept.id)
+                c_tenant = concept.tenant_id or "default"
+                active_concepts.add((c_tenant, concept.id))
 
-                existing = self.cache.get_concept(concept.id)
+                existing = self.cache.get_concept(concept.id, tenant_id=c_tenant)
                 if not force and existing:
                     # Check if commit hash or content is identical
                     if existing.get("commit_hash") == commit_hash and commit_hash is not None:
@@ -71,18 +70,27 @@ class IndexSyncWorker:
             except Exception:
                 summary.errors += 1
 
-        # Check for deleted concepts in cache
-        existing_concepts = self.cache.list_concepts(limit=100000)
+        # Check for deleted concepts in cache scoped to tenant
+        existing_concepts = self.cache.list_concepts(tenant_id=tenant_id, limit=100000)
         for ec in existing_concepts:
+            ec_tenant = ec.get("tenant_id", "default")
             cid = ec["id"]
-            if cid not in active_concept_ids:
-                self.cache.delete_concept(cid)
+            if (ec_tenant, cid) not in active_concepts:
+                self.cache.delete_concept(cid, tenant_id=ec_tenant)
                 summary.deleted += 1
 
         summary.duration_ms = (time.perf_counter() - start_time) * 1000.0
         return summary
 
-    def rebuild(self) -> SyncSummary:
-        """Drop all tables in the query cache and rebuild fresh from Git truth."""
-        self.cache.clear()
-        return self.sync(force=True)
+    def rebuild(self, tenant_id: str | None = None) -> SyncSummary:
+        """Rebuild cache fresh from Git truth (optionally scoped to a tenant)."""
+        if tenant_id is None:
+            self.cache.clear()
+            return self.sync(tenant_id=None, force=True)
+
+        # Scoped rebuild: remove concepts for this tenant
+        existing_concepts = self.cache.list_concepts(tenant_id=tenant_id, limit=100000)
+        for ec in existing_concepts:
+            self.cache.delete_concept(ec["id"], tenant_id=tenant_id)
+
+        return self.sync(tenant_id=tenant_id, force=True)

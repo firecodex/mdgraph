@@ -1,9 +1,9 @@
 """Pytest test configuration and fixtures for MdGraph."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
+
 import pytest
 
 from mdgraph.indexer.sqlite_cache import SQLiteQueryCache

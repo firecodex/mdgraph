@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class GitRepo:
@@ -28,7 +28,7 @@ class GitRepo:
         if auto_init and not self.is_git_repo():
             self.init_repo()
 
-    def _run_git(self, args: List[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    def _run_git(self, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
         """Run a git command in the repository directory."""
         env = os.environ.copy()
         env["GIT_AUTHOR_NAME"] = self.author_name
@@ -80,7 +80,7 @@ class GitRepo:
             index_file.write_text(index_content, encoding="utf-8")
             self.commit("Initialize MdGraph OKF repository with root index.md")
 
-    def commit(self, message: str, paths: Optional[List[str]] = None) -> Optional[str]:
+    def commit(self, message: str, paths: list[str] | None = None) -> str | None:
         """Stage files and create a commit. Returns commit hash or None if nothing changed."""
         try:
             if paths:
@@ -96,11 +96,11 @@ class GitRepo:
 
             self._run_git(["commit", "-m", message])
             return self.get_head_commit()
-        except Exception as e:
+        except Exception:
             # If commit fails (e.g. empty commit), return current head
             return self.get_head_commit()
 
-    def get_head_commit(self) -> Optional[str]:
+    def get_head_commit(self) -> str | None:
         """Get the full SHA of HEAD commit."""
         try:
             res = self._run_git(["rev-parse", "HEAD"], check=False)
@@ -110,7 +110,7 @@ class GitRepo:
         except Exception:
             return None
 
-    def get_file_commit_hash(self, rel_path: str | Path) -> Optional[str]:
+    def get_file_commit_hash(self, rel_path: str | Path) -> str | None:
         """Get the commit hash that last modified the specified file."""
         try:
             res = self._run_git(
@@ -123,26 +123,59 @@ class GitRepo:
         except Exception:
             return self.get_head_commit()
 
-    def list_markdown_files(self) -> List[Path]:
-        """List all .md files in the repository, excluding .git and hidden folders."""
+    def list_markdown_files(self, tenant_id: str | None = None) -> list[Path]:
+        """List all .md files in the repository, optionally scoped to a tenant."""
         md_files = []
+
         for root, dirs, files in os.walk(self.repo_path):
             # Exclude hidden directories and cache dirs
             dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
             for f in files:
                 if f.endswith(".md"):
                     full_p = Path(root) / f
+                    rel_p = full_p.relative_to(self.repo_path)
+
+                    if tenant_id is not None:
+                        if tenant_id == "default":
+                            # Default tenant includes files outside tenants/ OR files under tenants/default/
+                            parts = rel_p.parts
+                            if parts and parts[0] == "tenants" and (len(parts) < 2 or parts[1] != "default"):
+                                continue
+                        else:
+                            # Specific tenant: must be under tenants/{tenant_id}/
+                            parts = rel_p.parts
+                            if not (len(parts) >= 2 and parts[0] == "tenants" and parts[1] == tenant_id):
+                                continue
+
                     md_files.append(full_p)
         return sorted(md_files)
 
-    def read_file(self, node_id_or_path: str) -> str:
-        """Read Markdown file by node_id or relative path."""
-        # Try direct path
+    def read_file(self, node_id_or_path: str, tenant_id: str | None = None) -> str:
+        """Read Markdown file by node_id or relative path, optionally scoped to tenant."""
+        # 1. If tenant_id specified and not default, check tenant directory first
+        if tenant_id and tenant_id != "default":
+            tenant_concept = self.repo_path / "tenants" / tenant_id / "concepts" / f"{node_id_or_path}.md"
+            if tenant_concept.is_file():
+                return tenant_concept.read_text(encoding="utf-8")
+
+            tenant_file = self.repo_path / "tenants" / tenant_id / f"{node_id_or_path}.md"
+            if tenant_file.is_file():
+                return tenant_file.read_text(encoding="utf-8")
+
+            tenant_direct = self.repo_path / "tenants" / tenant_id / node_id_or_path
+            if tenant_direct.is_file():
+                return tenant_direct.read_text(encoding="utf-8")
+
+            for p in self.list_markdown_files(tenant_id=tenant_id):
+                if p.stem == node_id_or_path or p.name == node_id_or_path:
+                    return p.read_text(encoding="utf-8")
+
+        # 2. Try direct path relative to repo root
         target = self.repo_path / node_id_or_path
         if target.is_file():
             return target.read_text(encoding="utf-8")
 
-        # Try with .md extension
+        # 3. Try with .md extension
         if not node_id_or_path.endswith(".md"):
             target_md = self.repo_path / f"{node_id_or_path}.md"
             if target_md.is_file():
@@ -153,12 +186,28 @@ class GitRepo:
             if target_concepts.is_file():
                 return target_concepts.read_text(encoding="utf-8")
 
-        # Search recursively
-        for p in self.list_markdown_files():
+        # 4. Search recursively across candidate files
+        candidate_files = self.list_markdown_files(tenant_id=tenant_id)
+        for p in candidate_files:
             if p.stem == node_id_or_path or p.name == node_id_or_path:
                 return p.read_text(encoding="utf-8")
 
         raise FileNotFoundError(f"Concept or file '{node_id_or_path}' not found in {self.repo_path}")
+
+    def list_tenants(self) -> list[str]:
+        """Discover all tenant identifiers present in the repository filesystem."""
+        tenants = set()
+        tenants_dir = self.repo_path / "tenants"
+        if tenants_dir.is_dir():
+            for child in tenants_dir.iterdir():
+                if child.is_dir() and not child.name.startswith("."):
+                    tenants.add(child.name)
+
+        # If root concepts or index.md exist, include 'default'
+        if (self.repo_path / "concepts").is_dir() or (self.repo_path / "index.md").is_file() or not tenants:
+            tenants.add("default")
+
+        return sorted(tenants)
 
     def write_file(self, rel_path: str | Path, content: str) -> Path:
         """Write content to a file in repository and return absolute path."""
@@ -175,7 +224,7 @@ class GitRepo:
             return True
         return False
 
-    def get_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get list of recent commits."""
         try:
             res = self._run_git(
@@ -199,7 +248,7 @@ class GitRepo:
         except Exception:
             return []
 
-    def get_diff(self, commit_hash: Optional[str] = None) -> str:
+    def get_diff(self, commit_hash: str | None = None) -> str:
         """Get git diff from HEAD or specified commit."""
         try:
             args = ["diff"]

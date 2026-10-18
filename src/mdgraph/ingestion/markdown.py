@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from mdgraph.ingestion.base import BaseParser, IngestionResult
 
@@ -26,7 +26,7 @@ class MarkdownParser(BaseParser):
         if h1_match:
             title = h1_match.group(1).strip()
 
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "format": "markdown" if file_path.suffix.lower() != ".txt" else "text",
             "file_size": file_path.stat().st_size,
         }

@@ -17,6 +17,10 @@ db_type: "sqlite"
 mcp_host: "0.0.0.0"
 mcp_port: 8000
 
+# REST API Server Settings
+api_host: "0.0.0.0"
+api_port: 8080
+
 # Compiler LLM Settings (LiteLLM model string)
 # Examples:
 #   - openai/gpt-4o-mini

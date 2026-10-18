@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
 
 from mdgraph.ingestion.base import BaseParser, IngestionResult
 
@@ -57,4 +56,4 @@ class PDFParser(BaseParser):
                 metadata={"format": "pdf", "engine": "pypdf", "num_pages": len(reader.pages)},
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to parse PDF {file_path}: {e}")
+            raise RuntimeError(f"Failed to parse PDF {file_path}: {e}") from e

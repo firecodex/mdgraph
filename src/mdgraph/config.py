@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
+
 import yaml
 from pydantic import BaseModel, Field
 
@@ -14,16 +14,18 @@ class MdGraphConfig(BaseModel):
     repo_path: str = Field(default="./knowledge", description="Directory containing Git-backed OKF Markdown repository")
     cache_path: str = Field(default="./.mdgraph/cache.db", description="Path to SQLite query cache database")
     db_type: str = Field(default="sqlite", description="Database backend: 'sqlite' or 'postgres'")
-    postgres_uri: Optional[str] = Field(default=None, description="PostgreSQL connection URI (if db_type is postgres)")
+    postgres_uri: str | None = Field(default=None, description="PostgreSQL connection URI (if db_type is postgres)")
     mcp_host: str = Field(default="0.0.0.0", description="MCP server bind host for SSE/HTTP")
     mcp_port: int = Field(default=8000, description="MCP server port")
+    api_host: str = Field(default="0.0.0.0", description="FastAPI REST service bind host")
+    api_port: int = Field(default=8080, description="FastAPI REST service port")
     llm_model: str = Field(default="openai/gpt-4o-mini", description="LiteLLM model string for compiler")
     llm_temperature: float = Field(default=0.1, description="LLM temperature for deterministic extraction")
     git_author_name: str = Field(default="MdGraph Compiler", description="Git author name for automated commits")
     git_author_email: str = Field(default="compiler@mdgraph.dev", description="Git author email")
     auto_commit: bool = Field(default=True, description="Automatically commit changes to Git repo")
 
-    def resolve_paths(self, base_dir: Optional[Path] = None) -> MdGraphConfig:
+    def resolve_paths(self, base_dir: Path | None = None) -> MdGraphConfig:
         """Resolve relative paths relative to base_dir or cwd."""
         base = base_dir or Path.cwd()
         resolved_repo = Path(self.repo_path)
@@ -41,6 +43,8 @@ class MdGraphConfig(BaseModel):
             postgres_uri=self.postgres_uri,
             mcp_host=self.mcp_host,
             mcp_port=self.mcp_port,
+            api_host=self.api_host,
+            api_port=self.api_port,
             llm_model=self.llm_model,
             llm_temperature=self.llm_temperature,
             git_author_name=self.git_author_name,
@@ -49,7 +53,7 @@ class MdGraphConfig(BaseModel):
         )
 
 
-def load_config(config_path: Optional[str] = None) -> MdGraphConfig:
+def load_config(config_path: str | None = None) -> MdGraphConfig:
     """Load configuration from a YAML file, environment variables, or defaults."""
     config_dict = {}
 
@@ -69,7 +73,7 @@ def load_config(config_path: Optional[str] = None) -> MdGraphConfig:
     for p in search_paths:
         if p.is_file():
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     loaded = yaml.safe_load(f)
                     if isinstance(loaded, dict):
                         config_dict = loaded
@@ -85,18 +89,31 @@ def load_config(config_path: Optional[str] = None) -> MdGraphConfig:
         "MDGRAPH_POSTGRES_URI": "postgres_uri",
         "MDGRAPH_MCP_HOST": "mcp_host",
         "MDGRAPH_MCP_PORT": "mcp_port",
+        "MDGRAPH_API_HOST": "api_host",
+        "MDGRAPH_API_PORT": "api_port",
         "MDGRAPH_LLM_MODEL": "llm_model",
         "MDGRAPH_AUTO_COMMIT": "auto_commit",
     }
     for env_var, field_name in env_mappings.items():
         if env_var in os.environ:
             val = os.environ[env_var]
-            if field_name == "mcp_port":
+            if field_name in ("mcp_port", "api_port"):
                 config_dict[field_name] = int(val)
             elif field_name == "auto_commit":
                 config_dict[field_name] = val.lower() in ("true", "1", "yes")
             else:
                 config_dict[field_name] = val
+
+    # Support standard Cloud Run PORT environment variable
+    if "PORT" in os.environ:
+        try:
+            port_val = int(os.environ["PORT"])
+            if "api_port" not in config_dict and "MDGRAPH_API_PORT" not in os.environ:
+                config_dict["api_port"] = port_val
+            if "mcp_port" not in config_dict and "MDGRAPH_MCP_PORT" not in os.environ:
+                config_dict["mcp_port"] = port_val
+        except ValueError:
+            pass
 
     cfg = MdGraphConfig(**config_dict)
     return cfg.resolve_paths()

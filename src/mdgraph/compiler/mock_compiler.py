@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional
+from datetime import datetime, timezone
 
 from mdgraph.compiler.base import BaseCompiler
 from mdgraph.models import OKFConcept, normalize_node_id
@@ -12,7 +12,13 @@ from mdgraph.models import OKFConcept, normalize_node_id
 class RuleBasedCompiler(BaseCompiler):
     """Deterministic compiler that extracts concepts from markdown sections and builds cross-links."""
 
-    def compile(self, text: str, source_name: Optional[str] = None) -> List[OKFConcept]:
+    def compile(
+        self,
+        text: str,
+        source_name: str | None = None,
+        tenant_id: str | None = "default",
+    ) -> list[OKFConcept]:
+        tenant_id = tenant_id or "default"
         # Split text by Markdown headers (# or ##)
         header_pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
         matches = list(header_pattern.finditer(text))
@@ -20,7 +26,9 @@ class RuleBasedCompiler(BaseCompiler):
         if not matches:
             # Single concept document
             fallback_id = normalize_node_id(source_name or "concept_document")
+            rel_file = f"tenants/{tenant_id}/concepts/{fallback_id}.md" if tenant_id != "default" else f"concepts/{fallback_id}.md"
             concept = OKFConcept(
+                tenant_id=tenant_id,
                 id=fallback_id,
                 type="Concept",
                 title=(source_name or "Concept Document").replace("_", " ").title(),
@@ -28,6 +36,7 @@ class RuleBasedCompiler(BaseCompiler):
                 tags=["ingested", "document"],
                 status="stable",
                 body=text.strip(),
+                file_path=rel_file,
             )
             return [concept]
 
@@ -65,7 +74,7 @@ class RuleBasedCompiler(BaseCompiler):
         # Discover cross-references between sections
         all_ids = {s["id"]: s["title"] for s in sections}
 
-        concepts: List[OKFConcept] = []
+        concepts: list[OKFConcept] = []
         for sec in sections:
             body = sec["body"]
             # Auto-link mentions of other sections if not already linked
@@ -82,18 +91,24 @@ class RuleBasedCompiler(BaseCompiler):
                 first_sentence = first_sentence[:157] + "..."
             description = first_sentence or f"Specification for {sec['title']}"
 
+            now_iso = datetime.now(timezone.utc).isoformat()
+            file_path = f"tenants/{tenant_id}/concepts/{sec['id']}.md" if tenant_id != "default" else f"concepts/{sec['id']}.md"
             concept = OKFConcept(
+                okf_version="0.2",
+                tenant_id=tenant_id,
                 id=sec["id"],
                 type=sec["type"],
                 title=sec["title"],
                 description=description,
                 tags=[sec["type"].lower(), "auto-extracted"],
                 status="stable",
+                generated={"by": "compiler:rule-based", "at": now_iso},
+                sources=[source_name] if source_name else [],
                 body=f"# {sec['title']}\n\n{body}",
-                file_path=f"concepts/{sec['id']}.md",
+                file_path=file_path,
             )
-            # Re-extract explicit edges
-            concept.edges = OKFConcept.extract_links(concept.id, concept.body)
+            # Re-extract explicit edges tagged with tenant_id
+            concept.edges = OKFConcept.extract_links(concept.id, concept.body, tenant_id=tenant_id)
             concepts.append(concept)
 
         return concepts

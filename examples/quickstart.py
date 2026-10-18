@@ -2,11 +2,11 @@
 """MdGraph Quickstart Example: Demonstrating the vectorless OKF context engine."""
 
 from pathlib import Path
+
 from rich.console import Console
 from rich.panel import Panel
 
-from mdgraph import GitRepo, SQLiteQueryCache, IndexSyncWorker, OKFConcept
-from mdgraph.storage.okf_file import OKFFileManager
+from mdgraph import GitRepo, IndexSyncWorker, SQLiteQueryCache
 
 console = Console()
 

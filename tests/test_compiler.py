@@ -24,7 +24,7 @@ def test_rule_based_compiler_sections_and_links():
 
     # Check auto-link creation between sections
     rwp = next(c for c in concepts if c.id == "remote_work_policy")
-    vp = next(c for c in concepts if c.id == "vendor_portal")
+    next(c for c in concepts if c.id == "vendor_portal")
 
     assert rwp.type == "Policy"
     # Check edges
