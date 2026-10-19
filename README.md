@@ -1,4 +1,4 @@
-# MdGraph
+# <img src="assets/mdgraph.png" alt="MdGraph Logo" width="38" height="38" valign="middle"> MdGraph
 
 [![PyPI version](https://img.shields.io/badge/pypi-0.1.1-blue.svg)](https://pypi.org/project/mdgraph/)
 [![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/mdgraph/)
